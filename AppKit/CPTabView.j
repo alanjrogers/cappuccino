@@ -553,8 +553,12 @@ var CPTabViewItemsKey               = "CPTabViewItemsKey",
         [self _createBezelBorder];
         
         var items = [aCoder decodeObjectForKey:CPTabViewItemsKey];
-        for (var i = 0; items && i < items.length; i++)
-            [self insertTabViewItem:items[i] atIndex:i];
+
+        for (var i = 0; items && i < items.length; i++) 
+        {
+            items[i]._view._superview = nil;
+                         [self insertTabViewItem:items[i] atIndex:i];
+        }
     
         var selected = [aCoder decodeObjectForKey:CPTabViewSelectedItemKey];
         if (selected)
