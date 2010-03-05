@@ -1601,6 +1601,14 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     return _delegate;
 }
 
+- (CPView)dataViewForTableColumn:(CPTableColumn)tableColumn row:(CPInteger)row
+{
+    if (_implementedDelegateMethods & CPTableViewDelegate_tableView_dataViewForTableColumn_row_)
+        return [[self delegate] tableView:self dataViewForTableColumn:tableColumn row:row];
+    else
+        return nil;
+}
+
 - (void)_sendDelegateDidClickColumn:(int)column
 {
     if (_implementedDelegateMethods & CPTableViewDelegate_tableView_didClickTableColumn_)
