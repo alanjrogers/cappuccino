@@ -94,7 +94,9 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
 
 #define NUMBER_OF_COLUMNS() (_tableColumns.length)
-#define UPDATE_COLUMN_RANGES_IF_NECESSARY() if (_dirtyTableColumnRangeIndex !== CPNotFound) [self _recalculateTableColumnRanges];
+#define UPDATE_COLUMN_RANGES_IF_NECESSARY() if (_dirtyTableColumnRangeIndex !== CPNotFound) [self _recalculateTableColumnRanges]
+#define UPDATE_ROW_RANGES_IF_NECESSARY() if (_dirtyTableRowRangeIndex !== CPNotFound) [self _recalculateTableRowRanges]
+
 
 @implementation _CPTableDrawView : CPView
 {
@@ -145,6 +147,8 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     CPInteger   _dirtyTableColumnRangeIndex;
     CPInteger   _numberOfHiddenColumns;
 
+    
+
     BOOL        _reloadAllRows;
     Object      _objectValues;
     CPIndexSet  _exposedRows;
@@ -163,7 +167,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     CPArray     _sortDescriptors;
     //Setting Display Attributes
     CGSize      _intercellSpacing;
-    float       _rowHeight;
+    float       _defaultRowHeight;
 
     BOOL        _usesAlternatingRowBackgroundColors;
     CPArray     _alternatingRowBackgroundColors;
@@ -174,7 +178,9 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     CPColor     _gridColor;
 
     unsigned    _numberOfRows;
-
+    
+    CPArray     _tableRowRanges;
+    CPInteger   _dirtyTableRowRangeIndex;
 
     CPTableHeaderView _headerView;
     _CPCornerView     _cornerView;
@@ -247,16 +253,18 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         _dataViewsForTableColumns = { };
         _dataViews=  [];
         _numberOfRows = 0;
+        _dirtyTableRowRangeIndex = 0;
+        _tableRowRanges = [];
         _exposedRows = [CPIndexSet indexSet];
         _exposedColumns = [CPIndexSet indexSet];
         _cachedDataViews = { };
         _intercellSpacing = _CGSizeMake(0.0, 0.0);
-        _rowHeight = 23.0;
+        _defaultRowHeight = 23.0;
 
         [self setGridColor:[CPColor colorWithHexString:@"dce0e2"]];
         [self setGridStyleMask:CPTableViewGridNone];
 
-        _headerView = [[CPTableHeaderView alloc] initWithFrame:CGRectMake(0, 0, [self bounds].size.width, _rowHeight)];
+        _headerView = [[CPTableHeaderView alloc] initWithFrame:CGRectMake(0, 0, [self bounds].size.width, _defaultRowHeight)];
 
         [_headerView setTableView:self];
 
@@ -386,7 +394,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     _reloadAllRows = YES;
     _objectValues = { };
-
+    
     // This updates the size too.
     [self noteNumberOfRowsChanged];
 
@@ -505,17 +513,17 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 {
     aRowHeight = +aRowHeight;
 
-    if (_rowHeight === aRowHeight)
+    if (_defaultRowHeight === aRowHeight)
         return;
 
-    _rowHeight = MAX(0.0, aRowHeight);
+    _defaultRowHeight = MAX(0.0, aRowHeight);
 
     [self setNeedsLayout];
 }
 
 - (unsigned)rowHeight
 {
-    return _rowHeight;
+    return _defaultRowHeight;
 }
 
 /*!
@@ -1059,6 +1067,29 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 }
 
 // Complexity:
+// O(Rows)
+- (void)_recalculateTableRowRanges
+{
+    if (_dirtyTableRowRangeIndex < 0)
+        return;
+
+    var index = _dirtyTableRowRangeIndex,
+        count = [self numberOfRows],
+        y = index === 0 ? 0.0 : CPMaxRange(_tableRowRanges[index - 1]);
+    
+    for (; index < count; ++index)
+    {
+        var height = [self heightOfRow:index];
+        _tableRowRanges[index] = CPMakeRange(y, height);
+
+        y += height;
+    }
+
+    _tableRowRanges.length = count;
+    _dirtyTableRowRangeIndex = CPNotFound;
+}
+
+// Complexity:
 // O(1)
 - (CGRect)rectOfColumn:(CPInteger)aColumnIndex
 {
@@ -1074,14 +1105,25 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     return _CGRectMake(range.location, 0.0, range.length, CGRectGetHeight([self bounds]));
 }
 
+- (float)heightOfRow:(CPInteger)aRowIndex
+{
+    if (_implementedDelegateMethods & CPTableViewDelegate_tableView_heightOfRow_)
+        rowHeight = [[self delegate] tableView:self heightOfRow:aRowIndex];
+    else
+        rowHeight = _defaultRowHeight;
+    
+    return rowHeight;
+}
+
 - (CGRect)rectOfRow:(CPInteger)aRowIndex
 {
-    if (NO)
-        return NULL;
-
-    // FIXME: WRONG: ASK TABLE COLUMN RANGE
-    return _CGRectMake(0.0, (aRowIndex * (_rowHeight + _intercellSpacing.height)), _CGRectGetWidth([self bounds]), _rowHeight);
+    UPDATE_ROW_RANGES_IF_NECESSARY();
+    
+    var range = _tableRowRanges[aRowIndex];
+    
+    return _CGRectMake(0.0, range.location, _CGRectGetWidth([self bounds]), range.length);
 }
+
 
 // Complexity:
 // O(1)
@@ -1116,6 +1158,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     return CPMakeRange(firstRow, lastRow - firstRow + 1);
 }
+
 
 // Complexity:
 // O(lg Columns) if table view contains no hidden columns
@@ -1152,7 +1195,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 }
 
 // Complexity:
-// O(lg Columns) if table view contains now hidden columns
+// O(lg Columns) if table view contains no hidden columns
 // O(Columns) if table view contains hidden columns
 - (CPInteger)columnAtPoint:(CGPoint)aPoint
 {
@@ -1197,14 +1240,38 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
 - (CPInteger)rowAtPoint:(CGPoint)aPoint
 {
-    var y = aPoint.y;
+     var bounds = [self bounds];
 
-    var row = FLOOR(y / (_rowHeight + _intercellSpacing.height));
+     if (!_CGRectContainsPoint(bounds, aPoint))
+         return CPNotFound;
 
-    if (row >= _numberOfRows)
-        return -1;
+     UPDATE_ROW_RANGES_IF_NECESSARY();
 
-    return row;
+     var y = aPoint.y,
+         low = 0,
+         high = _tableRowRanges.length - 1;
+
+     while (low <= high)
+     {
+        var middle = FLOOR(low + (high - low) / 2),
+            range = _tableRowRanges[middle];
+
+        if (y < range.location)
+            high = middle - 1;
+        else if (y >= CPMaxRange(range))
+            low = middle + 1;
+        else
+        {
+            var numberOfRows = _tableRowRanges.length;
+             
+            if (middle < numberOfRows)
+                return middle;
+
+            return CPNotFound;
+        }
+    }
+
+    return CPNotFound;
 }
 
 - (CGRect)frameOfDataViewAtColumn:(CPInteger)aColumn row:(CPInteger)aRow
@@ -1409,6 +1476,8 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 - (void)noteNumberOfRowsChanged
 {
     _numberOfRows = [_dataSource numberOfRowsInTableView:self];
+    
+    _dirtyTableRowRangeIndex = 0;
 
     [self tile];
 }
@@ -1416,10 +1485,10 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 - (void)tile
 {
     UPDATE_COLUMN_RANGES_IF_NECESSARY();
+    UPDATE_ROW_RANGES_IF_NECESSARY();
 
-    // FIXME: variable row heights.
     var width = _tableColumnRanges.length > 0 ? CPMaxRange([_tableColumnRanges lastObject]) : 0.0,
-        height = (_rowHeight + _intercellSpacing.height) * _numberOfRows,
+        height = _tableRowRanges.length > 0 ? CPMaxRange([_tableRowRanges lastObject]) : 0.0,
         superview = [self superview];
 
     if ([superview isKindOfClass:[CPClipView class]])
@@ -2263,14 +2332,14 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     var totalHeight = _CGRectGetMaxY(aRect);
 
-    if (heightFilled >= totalHeight || _rowHeight <= 0.0)
+    if (heightFilled >= totalHeight)
         return;
-
-    var rowHeight = _rowHeight + _intercellSpacing.height,
-        fillRect = _CGRectMake(_CGRectGetMinX(aRect), _CGRectGetMinY(aRect) + heightFilled, _CGRectGetWidth(aRect), rowHeight);
 
     for (row = lastRow + 1; heightFilled < totalHeight; ++row)
     {
+        var rowHeight = [self heightOfRow:row],
+            fillRect = _CGRectMake(_CGRectGetMinX(aRect), _CGRectGetMinY(aRect) + heightFilled, _CGRectGetWidth(aRect), rowHeight);
+            
         CGContextSetFillColor(context, rowColors[row % colorCount]);
         CGContextFillRect(context, fillRect);
 
@@ -2306,20 +2375,6 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
             CGContextMoveToPoint(context, minX, rowY);
             CGContextAddLineToPoint(context, maxX, rowY);
-        }
-
-        if (_rowHeight > 0.0)
-        {
-            var rowHeight = _rowHeight + _intercellSpacing.height,
-                totalHeight = _CGRectGetMaxY(aRect);
-
-            while (rowY < totalHeight)
-            {
-                rowY += rowHeight;
-
-                CGContextMoveToPoint(context, minX, rowY);
-                CGContextAddLineToPoint(context, maxX, rowY);
-            }
         }
     }
 
@@ -2809,19 +2864,19 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 - (CPInteger)_proposedRowAtPoint:(CGPoint)dragPoint
 {
     var numberOfRows = [self numberOfRows],
-        row;
-    // cocoa seems to jump to the next row when we approach the below row
-    dragPoint.y += FLOOR(_rowHeight/4);
+        row = [self rowAtPoint:dragPoint];
+        
     
-    if (dragPoint.y > numberOfRows * (_rowHeight + _intercellSpacing.height))
+    // cocoa seems to jump to the next row when we approach the below row
+    dragPoint.y += FLOOR(_defaultRowHeight/4);
+    
+    if (dragPoint.y > CPMaxRange([_tableRowRanges lastObject]))
     {
         if ([self _proposedDropOperation] === CPTableViewDropAbove) 
             row = numberOfRows;
         else
             row = numberOfRows - 1;
     }
-    else
-        row = [self rowAtPoint:dragPoint];
     
     return row;
 }
@@ -2870,9 +2925,9 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     
     // FIXME : Maybe we should do this in a timer outside this method. 
     // Problem: we don't know when the scroll ends or when the next -draggingUpdated is called. 
-    if (row > 0 && location.y - CGRectGetMinY(exposedClipRect) < _rowHeight)
+    if (row > 0 && location.y - CGRectGetMinY(exposedClipRect) < [self heightOfRow:row])
         [self scrollRowToVisible:row - 1];
-    else if (row < numberOfRows && CGRectGetMaxY(exposedClipRect) - location.y < _rowHeight)
+    else if (row < numberOfRows && CGRectGetMaxY(exposedClipRect) - location.y < [self heightOfRow:row])
         [self scrollRowToVisible:row + 1];
         
     return dragOperation;
@@ -3196,6 +3251,9 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
         _tableColumnRanges = [];
         _dirtyTableColumnRangeIndex = 0;
         _numberOfHiddenColumns = 0;
+        
+        _tableRowRanges = [];
+        _dirtyTableRowRangeIndex = 0;
 
         _objectValues = { };
         _dataViewsForTableColumns = { };
@@ -3204,7 +3262,7 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
         _exposedRows = [CPIndexSet indexSet];
         _exposedColumns = [CPIndexSet indexSet];
         _cachedDataViews = { };
-        _rowHeight = [aCoder decodeFloatForKey:CPTableViewRowHeightKey];
+        _defailtRowHeight = [aCoder decodeFloatForKey:CPTableViewRowHeightKey];
         
         if ([aCoder containsValueForKey:CPTableViewIntercellSpacingKey])
             _intercellSpacing = [aCoder decodeSizeForKey:CPTableViewIntercellSpacingKey];
@@ -3241,7 +3299,7 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
     [aCoder encodeObject:_dataSource forKey:CPTableViewDataSourceKey];
     [aCoder encodeObject:_delegate forKey:CPTableViewDelegateKey];
 
-    [aCoder encodeFloat:_rowHeight forKey:CPTableViewRowHeightKey];
+    [aCoder encodeFloat:_defaultRowHeight forKey:CPTableViewRowHeightKey];
     [aCoder encodeSize:_intercellSpacing forKey:CPTableViewIntercellSpacingKey];
     
     [aCoder encodeBool:_allowsMultipleSelection forKey:CPTableViewMultipleSelectionKey];
