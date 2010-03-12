@@ -707,8 +707,15 @@ var _CPTabLabelsViewBackgroundColor = nil,
     
     for (; index < count; ++index)
     {
-        var label = _tabLabels[index],
-            frame = _CGRectMake(x, 8.0, 220.0, 18.0);
+        var label = _tabLabels[index];
+        var labelSize = [[[label tabViewItem] label] sizeWithFont:[CPFont boldSystemFontOfSize:11.0]]; 
+        var proposedWidth = 200.0;
+        
+        if (labelSize != nil)
+            proposedWidth = labelSize.width;
+        
+        var frame = _CGRectMake(x, 8.0, MIN(200.0, proposedWidth + _CPTabLabelsViewInsideMargin*2), 18.0);
+            
         
         [label setFrame:frame];
         
@@ -769,6 +776,7 @@ var _CPTabLabelBackgroundColor          = nil,
         _labelField = [[CPTextField alloc] initWithFrame:CGRectMakeZero()];
         
         [_labelField setAlignment:CPCenterTextAlignment];
+        [_labelField setLineBreakMode:CPLineBreakByTruncatingTail];
         [_labelField setFrame:CGRectMake(5.0, 0.0, CGRectGetWidth(aFrame) - 10.0, 20.0)];
         [_labelField setAutoresizingMask:CPViewWidthSizable];
         [_labelField setFont:[CPFont boldSystemFontOfSize:11.0]];
