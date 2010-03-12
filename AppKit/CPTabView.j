@@ -708,7 +708,7 @@ var _CPTabLabelsViewBackgroundColor = nil,
     for (; index < count; ++index)
     {
         var label = _tabLabels[index],
-            frame = _CGRectMake(x, 8.0, width, 18.0);
+            frame = _CGRectMake(x, 8.0, 220.0, 18.0);
         
         [label setFrame:frame];
         
