@@ -1101,12 +1101,20 @@ var CPOutlineViewIndentationPerLevelKey = @"CPOutlineViewIndentationPerLevelKey"
 
     if (self)
     {
+         _selectionHighlightStyle = CPTableViewSelectionHighlightStyleSourceList;
+
         // The root item has weight "0", thus represents the weight solely of its descendants.
         _rootItemInfo = { isExpanded:YES, isExpandable:NO, level:-1, row:-1, children:[], weight:0 };
         
         _itemsForRows = [];
         _itemInfosForItems = { };
         _disclosureControlsForRows = [];
+        
+        _retargetedItem = nil;
+        _shouldRetargetItem = NO;
+
+        _retargedChildIndex = nil;
+        _shouldRetargetChildIndex = NO;
         
         [self setIndentationMarkerFollowsDataView:YES];
         [self setDisclosureControlPrototype:[[CPDisclosureButton alloc] initWithFrame:CGRectMake(0.0, 0.0, 10.0, 10.0)]];
