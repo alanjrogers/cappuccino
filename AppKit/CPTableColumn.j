@@ -273,14 +273,7 @@ CPTableColumnUserResizingMask   = 1 << 1;
 */
 - (id)dataViewForRow:(int)aRowIndex
 {
-    // Call the delegate to see if it want's to provide a dataView
-    
-    var delegateDataView = [[self tableView] dataViewForTableColumn:self row:aRowIndex];
-    
-    if (delegateDataView == nil)
-        return [self dataView];
-    else
-        return delegateDataView;
+    return [self dataView];
 }
 
 - (id)_newDataViewForRow:(int)aRowIndex

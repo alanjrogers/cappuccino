@@ -519,7 +519,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     [self setNeedsLayout];
 }
 
-- (unsigned)rowHeight
+- (float)rowHeight
 {
     return _rowHeight;
 }
@@ -1115,10 +1115,10 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
 - (float)heightOfRow:(CPInteger)aRowIndex
 {
+    var rowHeight = _rowHeight;
+    
     if (_implementedDelegateMethods & CPTableViewDelegate_tableView_heightOfRow_)
-        rowHeight = [[self delegate] tableView:self heightOfRow:aRowIndex];
-    else
-        rowHeight = _rowHeight;
+        rowHeight = [_delegate tableView:self heightOfRow:aRowIndex];
     
     return rowHeight;
 }
@@ -1674,14 +1674,6 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 - (id)delegate
 {
     return _delegate;
-}
-
-- (CPView)dataViewForTableColumn:(CPTableColumn)tableColumn row:(CPInteger)row
-{
-    if (_implementedDelegateMethods & CPTableViewDelegate_tableView_dataViewForTableColumn_row_)
-        return [[self delegate] tableView:self dataViewForTableColumn:tableColumn row:row];
-    else
-        return nil;
 }
 
 - (void)_sendDelegateDidClickColumn:(int)column
@@ -2242,7 +2234,6 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         var dataView = [_delegate tableView:self dataViewForTableColumn:aTableColumn row:aRow];
         [aTableColumn setDataView:dataView];
     }
-        
     
     return [aTableColumn _newDataViewForRow:aRow];
 }

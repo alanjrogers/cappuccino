@@ -1008,7 +1008,7 @@ var _loadItemInfoForItem = function(/*CPOutlineView*/ anOutlineView, /*id*/ anIt
 }
 
 - (float)tableView:(CPTableView)theTableView heightOfRow:(int)theRow
-{
+{    
     if ((_outlineView._implementedOutlineViewDelegateMethods & CPOutlineViewDelegate_outlineView_heightOfRowByItem_))
         return [_outlineView._outlineViewDelegate outlineView:_outlineView heightOfRowByItem:[_outlineView itemAtRow:theRow]];
 
@@ -1117,7 +1117,6 @@ var CPOutlineViewIndentationPerLevelKey = @"CPOutlineViewIndentationPerLevelKey"
         _shouldRetargetChildIndex = NO;
         
         [self setIndentationMarkerFollowsDataView:YES];
-        [self setDisclosureControlPrototype:[[CPDisclosureButton alloc] initWithFrame:CGRectMake(0.0, 0.0, 10.0, 10.0)]];
         
         _outlineTableColumn = [aCoder decodeObjectForKey:CPOutlineViewOutlineTableColumnKey];
         _indentationPerLevel = [aCoder decodeFloatForKey:CPOutlineViewIndentationPerLevelKey];
@@ -1126,6 +1125,9 @@ var CPOutlineViewIndentationPerLevelKey = @"CPOutlineViewIndentationPerLevelKey"
         _outlineViewDelegate = [aCoder decodeObjectForKey:CPOutlineViewDelegateKey];
         
         [super setDataSource:[[_CPOutlineViewTableViewDataSource alloc] initWithOutlineView:self]];
+        [super setDelegate:[[_CPOutlineViewTableViewDelegate alloc] initWithOutlineView:self]];
+
+        [self setDisclosureControlPrototype:[[CPDisclosureButton alloc] initWithFrame:CGRectMake(0.0, 0.0, 10.0, 10.0)]];
     }
     
     return self;
