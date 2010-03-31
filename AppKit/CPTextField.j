@@ -433,7 +433,7 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 /* @ignore */
 - (BOOL)acceptsFirstResponder
 {
-    return [self isEditable] && [self isEnabled];
+    return ([self isEditable] || [self isSelectable]) && [self isEnabled];
 }
 
 /* @ignore */
@@ -572,7 +572,7 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 - (void)mouseDown:(CPEvent)anEvent
 {
     // Don't track! (ever?)
-    if ([self isEditable] && [self isEnabled])
+    if (([self isEditable] || [self isSelectable]) && [self isEnabled])
         return [[self window] makeFirstResponder:self];
     else
         return [[self nextResponder] mouseDown:anEvent];
@@ -580,65 +580,71 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 
 - (void)mouseUp:(CPEvent)anEvent
 {
-    if (![self isEditable] || ![self isEnabled])
+    if (!([self isEditable] || [self isSelectable]) || ![self isEnabled])
         [[self nextResponder] mouseUp:anEvent];
 }
 
 - (void)mouseDragged:(CPEvent)anEvent
 {
-    if (![self isEditable] || ![self isEnabled])
+    if (!([self isEditable] || [self isSelectable]) || ![self isEnabled])
         [[self nextResponder] mouseDragged:anEvent];
 }
 
 - (void)keyUp:(CPEvent)anEvent
 {
-    var oldValue = [self stringValue];
-    [self _setStringValue:[self _inputElement].value];
-
-    if (oldValue !== [self stringValue])
+    if ([self isEditable])
     {
-        if (!_isEditing)
+        var oldValue = [self stringValue];
+        [self _setStringValue:[self _inputElement].value];
+
+        if (oldValue !== [self stringValue])
         {
-            _isEditing = YES;
-            [self textDidBeginEditing:[CPNotification notificationWithName:CPControlTextDidBeginEditingNotification object:self userInfo:nil]];
+            if (!_isEditing)
+            {
+                _isEditing = YES;
+                [self textDidBeginEditing:[CPNotification notificationWithName:CPControlTextDidBeginEditingNotification object:self userInfo:nil]];
+            }
+
+            [self textDidChange:[CPNotification notificationWithName:CPControlTextDidChangeNotification object:self userInfo:nil]];
         }
 
-        [self textDidChange:[CPNotification notificationWithName:CPControlTextDidChangeNotification object:self userInfo:nil]];
+        [[[self window] platformWindow] _propagateCurrentDOMEvent:YES];
     }
-
-    [[[self window] platformWindow] _propagateCurrentDOMEvent:YES];
 }
 
 - (void)keyDown:(CPEvent)anEvent
 {
-    if ([anEvent keyCode] === CPReturnKeyCode)
+    if ([self isEditable])
     {
-        if (_isEditing)
+        if ([anEvent keyCode] === CPReturnKeyCode)
         {
-            _isEditing = NO;
-            [self textDidEndEditing:[CPNotification notificationWithName:CPControlTextDidEndEditingNotification object:self userInfo:nil]];
+            if (_isEditing)
+            {
+                _isEditing = NO;
+                [self textDidEndEditing:[CPNotification notificationWithName:CPControlTextDidEndEditingNotification object:self userInfo:nil]];
+            }
+
+            [self sendAction:[self action] to:[self target]];
+            [self selectText:nil];
+
+            [[[self window] platformWindow] _propagateCurrentDOMEvent:NO];
         }
+        else if ([anEvent keyCode] === CPTabKeyCode)
+        {
+            if ([anEvent modifierFlags] & CPShiftKeyMask)
+                [[self window] selectPreviousKeyView:self];
+            else
+                [[self window] selectNextKeyView:self];
 
-        [self sendAction:[self action] to:[self target]];
-        [self selectText:nil];
+            if ([[[self window] firstResponder] respondsToSelector:@selector(selectText:)])
+                [[[self window] firstResponder] selectText:self];
 
-        [[[self window] platformWindow] _propagateCurrentDOMEvent:NO];
-    }
-    else if ([anEvent keyCode] === CPTabKeyCode)
-    {
-        if ([anEvent modifierFlags] & CPShiftKeyMask)
-            [[self window] selectPreviousKeyView:self];
+            [[[self window] platformWindow] _propagateCurrentDOMEvent:NO];
+        }
         else
-            [[self window] selectNextKeyView:self];
-
-        if ([[[self window] firstResponder] respondsToSelector:@selector(selectText:)])
-            [[[self window] firstResponder] selectText:self];
-
-        [[[self window] platformWindow] _propagateCurrentDOMEvent:NO];
+            [[[self window] platformWindow] _propagateCurrentDOMEvent:YES];
     }
-    else
-        [[[self window] platformWindow] _propagateCurrentDOMEvent:YES];
-
+    
     [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 }
 
