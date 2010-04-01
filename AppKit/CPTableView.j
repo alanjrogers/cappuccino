@@ -1509,6 +1509,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     [self setNeedsLayout];
     [self setNeedsDisplay:YES];
+    [_headerView setNeedsLayout];
 }
 
 /*

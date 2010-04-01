@@ -473,7 +473,7 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 
     var contentRect = [self contentRectForBounds:[self bounds]];
 
-    element.style.top = "-1" + "px";
+    element.style.top = _CGRectGetMinX(contentRect) + "px";
     element.style.left = (_CGRectGetMinX(contentRect) - 1) + "px"; // why -1?
     element.style.width = _CGRectGetWidth(contentRect) + "px";
     element.style.height = _CGRectGetHeight(contentRect) + "px";
