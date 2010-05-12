@@ -287,8 +287,9 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         _tableDrawView = [[_CPTableDrawView alloc] initWithTableView:self];
         [_tableDrawView setBackgroundColor:[CPColor clearColor]];
         [self addSubview:_tableDrawView];
-        [self _init];
 
+        [self setBackgroundColor:[CPColor whiteColor]];
+        [self _init];
     }
 
     return self;
@@ -301,7 +302,6 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         [_dropOperationFeedbackView setTableView:self];
 
         _lastColumnShouldSnap = NO;
-        _backgroundColor = [CPColor whiteColor];
 
         // Gradients for the source list
         _sourceListActiveGradient = CGGradientCreateWithColorComponents(CGColorSpaceCreateDeviceRGB(), [89.0/255.0, 153.0/255.0, 209.0/255.0,1.0, 33.0/255.0, 94.0/255.0, 208.0/255.0,1.0], [0,1], 2);
@@ -2264,14 +2264,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 - (void)drawBackgroundInClipRect:(CGRect)aRect
 {
     if (!_usesAlternatingRowBackgroundColors)
-    {
-        var context = [[CPGraphicsContext currentContext] graphicsPort];
-
-        CGContextSetFillColor(context, _backgroundColor);
-        CGContextFillRect(context, aRect);
-
         return;
-    }
 
 
     var rowColors = [self alternatingRowBackgroundColors],
@@ -2618,7 +2611,10 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 {
     // Prevent CPControl from eating the mouse events when we are in a drag session
     if (![_draggedRowIndexes count])
+    {
+        [self autoscroll:anEvent];
         [super trackMouse:anEvent];
+    }
     else
         [CPApp sendEvent:anEvent];
 }
@@ -2931,14 +2927,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     [_dropOperationFeedbackView setFrame:rect];
     [_dropOperationFeedbackView setCurrentRow:row];
     [self addSubview:_dropOperationFeedbackView];
-    
-    // FIXME : Maybe we should do this in a timer outside this method. 
-    // Problem: we don't know when the scroll ends or when the next -draggingUpdated is called. 
-    if (row > 0 && location.y - CGRectGetMinY(exposedClipRect) < [self heightOfRow:row])
-        [self scrollRowToVisible:row - 1];
-    else if (row < numberOfRows && CGRectGetMaxY(exposedClipRect) - location.y < [self heightOfRow:row])
-        [self scrollRowToVisible:row + 1];
-        
+
     return dragOperation;
 }
 
@@ -3106,7 +3095,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
 - (void)keyDown:(CPEvent)anEvent
 {
-    [self interpretKeyEvents:[CPArray arrayWithObject:anEvent]];
+    [self interpretKeyEvents:[anEvent]];
 }
 
 - (void)moveDown:(id)sender

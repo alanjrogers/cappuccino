@@ -32,7 +32,10 @@
         size = [aCoder decodeDoubleForKey:@"NSSize"];
 
     if ((fontName === "LucidaGrande" || fontName === "LucidaGrande-Bold") && size === 13)
-        return [self _initWithName:"Arial" size:12.0 bold:YES];
+    {
+        CPLog.debug("Removing default IB font: <"+fontName+", "+size+"> for theme default font.");
+        return nil;
+    }
 
     // FIXME: Is this alwasy true?
     if (fontName.indexOf("-Bold") === fontName.length - "-Bold".length)
