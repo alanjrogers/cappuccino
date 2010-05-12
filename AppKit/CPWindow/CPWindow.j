@@ -372,6 +372,15 @@ CPTexturedBackgroundWindowMask
             [self setPlatformWindow:[CPPlatformWindow primaryPlatformWindow]];
         else
         {
+            // give zero sized borderless bridge windows a default size if we're not in the browser so they show up in NativeHost.
+            if ((aStyleMask & CPBorderlessBridgeWindowMask) && aContentRect.size.width === 0 && aContentRect.size.height === 0)
+            {
+                var visibleFrame = [[[CPScreen alloc] init] visibleFrame];
+                _frame.size.height = MIN(768.0, visibleFrame.size.height);
+                _frame.size.width = MIN(1024.0, visibleFrame.size.width);
+                _frame.origin.x = (visibleFrame.size.width - _frame.size.width) / 2;
+                _frame.origin.y = (visibleFrame.size.height - _frame.size.height) / 2;
+            }
             [self setPlatformWindow:[[CPPlatformWindow alloc] initWithContentRect:_frame]];
             [self platformWindow]._only = self;
         }
@@ -1924,7 +1933,8 @@ CPTexturedBackgroundWindowMask
             [keyWindow makeKeyWindow];
         else
         {
-            var menuWindow = [CPApp mainMenu]._menuWindow;
+            var mainMenu = [CPApp mainMenu],
+                menuWindow = mainMenu ? mainMenu._menuWindow : nil;
             for (var i = 0; i < windowCount; i++)
             {
                 var currentWindow = allWindows[i];
@@ -1952,7 +1962,8 @@ CPTexturedBackgroundWindowMask
             [mainWindow makeMainWindow];
         else
         {
-            var menuWindow = [CPApp mainMenu]._menuWindow;
+            var mainMenu = [CPApp mainMenu],
+                menuWindow = mainMenu ? mainMenu._menuWindow : nil;
             for (var i = 0; i < windowCount; i++)
             {
                 var currentWindow = allWindows[i];
