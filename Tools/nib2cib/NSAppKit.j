@@ -68,6 +68,7 @@
 @import "NSViewController.j"
 @import "NSWindowTemplate.j"
 @import "WebView.j"
+@import "NSSortDescriptor.j"
 
 
 function CP_NSMapClassName(aClassName)

@@ -74,6 +74,10 @@ CPTableViewDraggingDestinationFeedbackStyleSourceList = 1;
 CPTableViewDropOn = 0;
 CPTableViewDropAbove = 1;
 
+CPSourceListGradient = "CPSourceListGradient";
+CPSourceListTopLineColor = "CPSourceListTopLineColor";
+CPSourceListBottomLineColor = "CPSourceListBottomLineColor";
+
 // TODO: add docs
 
 CPTableViewSelectionHighlightStyleNone = -1;
@@ -170,6 +174,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     unsigned    _selectionHighlightStyle;
     CPTableColumn _currentHighlightedTableColumn;
+    CPColor     _selectionHighlightColor;
     unsigned    _gridStyleMask;
     CPColor     _gridColor;
 
@@ -242,7 +247,8 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         _selectionHighlightStyle = CPTableViewSelectionHighlightStyleRegular;
 
         [self setUsesAlternatingRowBackgroundColors:NO];
-        [self setAlternatingRowBackgroundColors:[[CPColor whiteColor], [CPColor colorWithHexString:@"f5f9fc"]]];
+        [self setAlternatingRowBackgroundColors:
+            [[CPColor whiteColor], [CPColor colorWithRed:245.0 / 255.0 green:249.0 / 255.0 blue:252.0 / 255.0 alpha:1.0]]];
 
         _tableColumns = [];
         _tableColumnRanges = [];
@@ -292,6 +298,8 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
         if (!_alternatingRowBackgroundColors)
             _alternatingRowBackgroundColors = [[CPColor whiteColor], [CPColor colorWithHexString:@"e4e7ff"]];
+
+        _selectionHighlightColor = [CPColor colorWithHexString:@"5f83b9"];
 
         _tableColumnRanges = [];
         _dirtyTableColumnRangeIndex = 0;
@@ -584,13 +592,65 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     //early return for IE.
     if (aSelectionHighlightStyle == CPTableViewSelectionHighlightStyleSourceList && !CPFeatureIsCompatible(CPHTMLCanvasFeature))
         return;
-    
+
     _selectionHighlightStyle = aSelectionHighlightStyle;
-    
+    [self setNeedsDisplay:YES];
+
     if (aSelectionHighlightStyle === CPTableViewSelectionHighlightStyleSourceList)
         _destinationDragStyle = CPTableViewDraggingDestinationFeedbackStyleSourceList;
     else
         _destinationDragStyle = CPTableViewDraggingDestinationFeedbackStyleRegular;
+}
+
+/*!
+    Sets the highlight color for a row or column selection
+    @param aColor a CPColor
+*/
+- (void)setSelectionHighlightColor:(CPColor)aColor
+{
+    if (aColor === _selectionHighlightColor)
+        return;
+
+    _selectionHighlightColor = aColor;
+    [self setNeedsDisplay:YES];
+}
+
+/*!
+    Returns the highlight color for a row or column selection.
+*/
+- (CPColor)selectionHighlightColor
+{
+    return _selectionHighlightColor;
+}
+
+/*!
+    Sets the highlight gradient for a row or column selection
+    This is specific to the 
+    @param aDictionary a CPDictionary expects three keys to be set:
+        CPSourceListGradient which is a CGGradient
+        CPSourceListTopLineColor which is a CPColor
+        CPSourceListBottomLineColor which is a CPColor
+*/
+- (void)setSelectionGradientColors:(CPDictionary)aDictionary
+{
+    if ([aDictionary valueForKey:"CPSourceListGradient"] === _sourceListActiveGradient && [aDictionary valueForKey:"CPSourceListTopLineColor"] === _sourceListActiveTopLineColor && [aDictionary valueForKey:"CPSourceListBottomLineColor"] === _sourceListActiveBottomLineColor)
+        return;
+
+    _sourceListActiveGradient        = [aDictionary valueForKey:CPSourceListGradient];
+    _sourceListActiveTopLineColor    = [aDictionary valueForKey:CPSourceListTopLineColor]
+    _sourceListActiveBottomLineColor = [aDictionary valueForKey:CPSourceListBottomLineColor];
+    [self setNeedsDisplay:YES]
+}
+
+/*!
+    Returns a dictionary of containing the keys:
+    CPSourceListGradient
+    CPSourceListTopLineColor
+    CPSourceListBottomLineColor
+*/
+- (CPDictionary)selectionGradientColors
+{   
+    return [CPDictionary dictionaryWithObjects:[_sourceListActiveGradient, _sourceListActiveTopLineColor, _sourceListActiveBottomLineColor] forKeys:[CPSourceListGradient, CPSourceListTopLineColor, CPSourceListBottomLineColor]];
 }
 
 /*!
@@ -1562,9 +1622,20 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
 - (void)noteNumberOfRowsChanged
 {
+    var oldNumberOfRows = _numberOfRows;
+
     _numberOfRows = [_dataSource numberOfRowsInTableView:self];
     
     _dirtyTableRowRangeIndex = 0;
+
+    // remove row indexes from the selection if they no longer exist
+    var hangingSelections = oldNumberOfRows - _numberOfRows;
+
+    if (hangingSelections > 0)
+    {
+        [_selectedRowIndexes removeIndexesInRange:CPMakeRange(_numberOfRows, hangingSelections)];
+        [self _noteSelectionDidChange];
+    }
 
     [self tile];
 }
@@ -1891,7 +1962,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     if (_headerView)
     {
         if (_currentHighlightedTableColumn != nil)
-            [[_currentHighlightedTableColumn headerView] unsetThemeState:CPThemeStateSelectedDataView];
+            [[_currentHighlightedTableColumn headerView] unsetThemeState:CPThemeStateSelected];
    
         if (aTableColumn != nil)
             [[aTableColumn headerView] setThemeState:CPThemeStateSelected];
@@ -2607,7 +2678,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     
     if (!drawGradient)
     {
-        [[CPColor selectionColor] setFill];
+        [_selectionHighlightColor setFill];
         CGContextFillPath(context);
     }
     
@@ -3401,9 +3472,10 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
         _gridColor = [aCoder decodeObjectForKey:CPTableViewGridColorKey] || [CPColor grayColor];
         _gridStyleMask = [aCoder decodeIntForKey:CPTableViewGridStyleMaskKey] || CPTableViewGridNone;
 
-        _alternatingRowBackgroundColors = [aCoder decodeObjectForKey:CPTableViewAlternatingRowColorsKey];
         _usesAlternatingRowBackgroundColors = [aCoder decodeObjectForKey:CPTableViewUsesAlternatingBackgroundKey]
-        
+        _alternatingRowBackgroundColors = 
+            [[CPColor whiteColor], [CPColor colorWithRed:245.0 / 255.0 green:249.0 / 255.0 blue:252.0 / 255.0 alpha:1.0]];
+
         _headerView = [aCoder decodeObjectForKey:CPTableViewHeaderViewKey];
         _cornerView = [aCoder decodeObjectForKey:CPTableViewCornerViewKey];
 
@@ -3444,20 +3516,6 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
 
     [aCoder encodeObject:_cornerView forKey:CPTableViewCornerViewKey];
     [aCoder encodeObject:_headerView forKey:CPTableViewHeaderViewKey];
-}
-
-@end
-
-@implementation CPColor (tableview)
-
-+ (CPColor)selectionColor
-{
-    return [CPColor colorWithHexString:@"5f83b9"];
-}
-
-+ (CPColor)selectionColorSourceView
-{
-    return [CPColor colorWithPatternImage:[[CPImage alloc] initByReferencingFile:@"Resources/tableviewselection.png" size:CGSizeMake(6,22)]];
 }
 
 @end
