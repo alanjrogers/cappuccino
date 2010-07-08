@@ -505,6 +505,28 @@
     }];
 }
 
+- (unsigned)insertObject:(id)anObject inArraySortedByDescriptors:(CPArray)descriptors
+{
+    var index = [self _insertObject:anObject sortedByFunction:function(lhs, rhs)
+    {
+        var i = 0,
+            count = [descriptors count],
+            result = CPOrderedSame;
+
+        while (i < count)
+            if((result = [descriptors[i++] compareObject:lhs withObject:rhs]) != CPOrderedSame)
+                return result;
+
+        return result;
+    } context:nil];
+
+    if (index < 0)
+        index = -result-1;
+
+    [self insertObject:anObject atIndex:index];
+    return index;
+}
+
 /*!
     Returns the last object in the array. If the array is empty, returns \c nil/
 */
@@ -774,7 +796,7 @@
 */
 - (CPArray)sortedArrayUsingSelector:(SEL)aSelector
 {
-    var sorted = [self copy]
+    var sorted = [self copy];
 
     [sorted sortUsingSelector:aSelector];
 

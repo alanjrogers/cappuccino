@@ -473,7 +473,7 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 
     var contentRect = [self contentRectForBounds:[self bounds]];
 
-    element.style.top = _CGRectGetMinX(contentRect) + "px";
+    element.style.top = _CGRectGetMinY(contentRect) + "px";
     element.style.left = (_CGRectGetMinX(contentRect) - 1) + "px"; // why -1?
     element.style.width = _CGRectGetWidth(contentRect) + "px";
     element.style.height = _CGRectGetHeight(contentRect) + "px";
@@ -536,12 +536,12 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
     CPTextFieldInputIsActive = NO;
 
     if (document.attachEvent)
-    {
-        CPTextFieldCachedSelectStartFunction = nil;
-        CPTextFieldCachedDragFunction = nil;
-        
+    {   
         [[self window] platformWindow]._DOMBodyElement.ondrag = CPTextFieldCachedDragFunction;
         [[self window] platformWindow]._DOMBodyElement.onselectstart = CPTextFieldCachedSelectStartFunction;
+
+        CPTextFieldCachedSelectStartFunction = nil;
+        CPTextFieldCachedDragFunction = nil;
     }
     
 #endif
@@ -574,6 +574,18 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
     // Don't track! (ever?)
     if (([self isEditable] || [self isSelectable]) && [self isEnabled])
         return [[self window] makeFirstResponder:self];
+    else if ([self isSelectable])
+    {
+        if (document.attachEvent)
+        {
+            CPTextFieldCachedSelectStartFunction = [[self window] platformWindow]._DOMBodyElement.onselectstart;
+            CPTextFieldCachedDragFunction = [[self window] platformWindow]._DOMBodyElement.ondrag;
+            
+            [[self window] platformWindow]._DOMBodyElement.ondrag = function () {};
+            [[self window] platformWindow]._DOMBodyElement.onselectstart = function () {};
+        }
+        return [[[anEvent window] platformWindow] _propagateCurrentDOMEvent:YES];
+    }
     else
         return [[self nextResponder] mouseDown:anEvent];
 }
@@ -582,12 +594,26 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 {
     if (!([self isEditable] || [self isSelectable]) || ![self isEnabled])
         [[self nextResponder] mouseUp:anEvent];
+    else if ([self isSelectable])
+    {
+        if (document.attachEvent)
+        {
+            [[self window] platformWindow]._DOMBodyElement.ondrag = CPTextFieldCachedDragFunction;
+            [[self window] platformWindow]._DOMBodyElement.onselectstart = CPTextFieldCachedSelectStartFunction; 
+
+            CPTextFieldCachedSelectStartFunction = nil
+            CPTextFieldCachedDragFunction = nil;
+        }
+        return [[[anEvent window] platformWindow] _propagateCurrentDOMEvent:YES];
+    }
 }
 
 - (void)mouseDragged:(CPEvent)anEvent
 {
     if (!([self isEditable] || [self isSelectable]) || ![self isEnabled])
         [[self nextResponder] mouseDragged:anEvent];
+    else if ([self isSelectable])
+        return [[[anEvent window] platformWindow] _propagateCurrentDOMEvent:YES];
 }
 
 - (void)keyUp:(CPEvent)anEvent
