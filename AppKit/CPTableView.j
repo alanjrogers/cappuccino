@@ -223,6 +223,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     CPColor     _sourceListActiveBottomLineColor;
 
     int         _draggedColumnIndex;
+    CPArray   _differedColumnDataToRemove;
 
 /*
     CPGradient  _sourceListInactiveGradient;
@@ -345,6 +346,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         _sourceListInactiveGradient = CGGradientCreateWithColorComponents(CGColorSpaceCreateDeviceRGB(), [168.0/255.0,183.0/255.0,205.0/255.0,1.0,157.0/255.0,174.0/255.0,199.0/255.0,1.0], [0,1], 2);
         _sourceListInactiveTopLineColor = [CPColor colorWithCalibratedRed:(173.0/255.0) green:(187.0/255.0) blue:(209.0/255.0) alpha:1.0];
         _sourceListInactiveBottomLineColor = [CPColor colorWithCalibratedRed:(150.0/255.0) green:(161.0/255.0) blue:(183.0/255.0) alpha:1.0];*/
+        _differedColumnDataToRemove = [ ];
 }
 
 /*!
@@ -730,6 +732,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     else
         _dirtyTableColumnRangeIndex = MIN(NUMBER_OF_COLUMNS() - 1, _dirtyTableColumnRangeIndex);
 
+    [self tile];
     [self setNeedsLayout];
 }
 
@@ -747,8 +750,11 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     if (index === CPNotFound)
         return;
 
+    // we differ the actual removal until the end of the runloop in order to keep a reference to the column.
+    [_differedColumnDataToRemove addObject:{"column":aTableColumn, "shouldBeHidden": [aTableColumn isHidden]}];
+
+    [aTableColumn setHidden:YES];
     [aTableColumn setTableView:nil];
-    [_tableColumns removeObjectAtIndex:index];
 
     var tableColumnUID = [aTableColumn UID];
 
@@ -879,7 +885,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         _selectedColumnIndexes = [columns copy];
 
     [self _updateHighlightWithOldColumns:previousSelectedIndexes newColumns:_selectedColumnIndexes];
-    [_tableDrawView display]; // FIXME: should be setNeedsDisplayInRect:enclosing rect of new (de)selected columns
+    [self setNeedsDisplay:YES]; // FIXME: should be setNeedsDisplayInRect:enclosing rect of new (de)selected columns
                               // but currently -drawRect: is not implemented here
     if (_headerView)
         [_headerView setNeedsDisplay:YES];
@@ -895,7 +901,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     _selectedRowIndexes = [rows copy];
 
     [self _updateHighlightWithOldRows:previousSelectedIndexes newRows:_selectedRowIndexes];
-    [_tableDrawView display]; // FIXME: should be setNeedsDisplayInRect:enclosing rect of new (de)selected rows
+    [self setNeedsDisplay:YES]; // FIXME: should be setNeedsDisplayInRect:enclosing rect of new (de)selected rows
                               // but currently -drawRect: is not implemented here
 
     [[CPKeyValueBinding getBinding:@"selectionIndexes" forObject:self] reverseSetValueFor:@"selectedRowIndexes"];
@@ -2298,7 +2304,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     [_tableDrawView setFrame:exposedRect];
 
-    [_tableDrawView display];
+    [self setNeedsDisplay:YES];
 
     // Now clear all the leftovers
     // FIXME: this could be faster!
@@ -2309,6 +2315,20 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
         while (count--)
             [dataViews[count] removeFromSuperview];
+    }
+
+    // if we have any columns to remove do that here
+    if ([_differedColumnDataToRemove count])
+    {
+        for (var i = 0; i < _differedColumnDataToRemove.length; i++)
+        {
+            var data = _differedColumnDataToRemove[i],
+                column = data.column;
+
+            [column setHidden:data.shouldBeHidden];
+            [_tableColumns removeObject:column];
+        }
+        [_differedColumnDataToRemove removeAllObjects];
     }
 
 }
@@ -2519,6 +2539,12 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         return [self bounds];
 
     return [self convertRect:CGRectIntersection([superview bounds], [self frame]) fromView:superview];
+}
+
+- (void)setNeedsDisplay:(BOOL)aFlag
+{
+    [super setNeedsDisplay:aFlag];
+    [_tableDrawView setNeedsDisplay:aFlag];
 }
 
 - (void)_drawRect:(CGRect)aRect
