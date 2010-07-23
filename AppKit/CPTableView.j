@@ -166,6 +166,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     BOOL        _allowsEmptySelection;
 
     CPArray     _sortDescriptors;
+
     //Setting Display Attributes
     CGSize      _intercellSpacing;
     float       _rowHeight;
@@ -175,9 +176,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     unsigned    _selectionHighlightStyle;
     CPTableColumn _currentHighlightedTableColumn;
-    CPColor     _selectionHighlightColor;
     unsigned    _gridStyleMask;
-    CPColor     _gridColor;
 
     unsigned    _numberOfRows;
     
@@ -218,18 +217,25 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     BOOL        _disableAutomaticResizing @accessors(property=disableAutomaticResizing);
     BOOL        _lastColumnShouldSnap;
 
-    CPGradient  _sourceListActiveGradient;
-    CPColor     _sourceListActiveTopLineColor;
-    CPColor     _sourceListActiveBottomLineColor;
-
     int         _draggedColumnIndex;
-    CPArray   _differedColumnDataToRemove;
+    CPArray     _differedColumnDataToRemove;
 
 /*
     CPGradient  _sourceListInactiveGradient;
     CPColor     _sourceListInactiveTopLineColor;
     CPColor     _sourceListInactiveBottomLineColor;
 */
+}
+
++ (CPString)themeClass
+{
+    return @"tableview";
+}
+
++ (id)themeAttributes
+{
+    return [CPDictionary dictionaryWithObjects:[[CPNull null], [CPNull null], [CPNull null], [CPNull null], [CPNull null], [CPNull null], [CPNull null]]
+                                       forKeys:["alternating-row-colors", "grid-color", "highlighted-grid-color", "selection-color", "sourcelist-selection-color", "sort-image", "sort-image-reversed"]];
 }
 
 - (id)initWithFrame:(CGRect)aFrame
@@ -593,17 +599,14 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
 - (void)setAlternatingRowBackgroundColors:(CPArray)alternatingRowBackgroundColors
 {
-    if ([_alternatingRowBackgroundColors isEqual:alternatingRowBackgroundColors])
-        return;
-
-    _alternatingRowBackgroundColors = alternatingRowBackgroundColors;
+    [self setValue:alternatingRowBackgroundColors forThemeAttribute:"alternating-row-colors"];
 
     [self setNeedsDisplay:YES];
 }
 
 - (CPArray)alternatingRowBackgroundColors
 {
-    return _alternatingRowBackgroundColors;
+    return [self currentValueForThemeAttribute:@"alternating-row-colors"];
 }
 
 - (unsigned)selectionHighlightStyle
@@ -632,10 +635,8 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 */
 - (void)setSelectionHighlightColor:(CPColor)aColor
 {
-    if (aColor === _selectionHighlightColor)
-        return;
+    [self setValue:aColor forThemeAttribute:"selection-color"];
 
-    _selectionHighlightColor = aColor;
     [self setNeedsDisplay:YES];
 }
 
@@ -644,7 +645,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 */
 - (CPColor)selectionHighlightColor
 {
-    return _selectionHighlightColor;
+    return [self currentValueForThemeAttribute:@"selection-color"];
 }
 
 /*!
@@ -657,12 +658,8 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 */
 - (void)setSelectionGradientColors:(CPDictionary)aDictionary
 {
-    if ([aDictionary valueForKey:"CPSourceListGradient"] === _sourceListActiveGradient && [aDictionary valueForKey:"CPSourceListTopLineColor"] === _sourceListActiveTopLineColor && [aDictionary valueForKey:"CPSourceListBottomLineColor"] === _sourceListActiveBottomLineColor)
-        return;
+    [self setValue:aDictionary forThemeAttribute:"sourcelist-selection-color"];
 
-    _sourceListActiveGradient        = [aDictionary valueForKey:CPSourceListGradient];
-    _sourceListActiveTopLineColor    = [aDictionary valueForKey:CPSourceListTopLineColor];
-    _sourceListActiveBottomLineColor = [aDictionary valueForKey:CPSourceListBottomLineColor];
     [self setNeedsDisplay:YES];
 }
 
@@ -674,7 +671,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 */
 - (CPDictionary)selectionGradientColors
 {
-    return [CPDictionary dictionaryWithObjects:[_sourceListActiveGradient, _sourceListActiveTopLineColor, _sourceListActiveBottomLineColor] forKeys:[CPSourceListGradient, CPSourceListTopLineColor, CPSourceListBottomLineColor]];
+    return [self currentValueForThemeAttribute:@"sourcelist-selection-color"];
 }
 
 /*!
@@ -683,17 +680,14 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 */
 - (void)setGridColor:(CPColor)aColor
 {
-    if (_gridColor === aColor)
-        return;
-
-    _gridColor = aColor;
+    [self setValue:aColor forThemeAttribute:"grid-color"];
 
     [self setNeedsDisplay:YES];
 }
 
 - (CPColor)gridColor
 {
-    return _gridColor;
+    return [self currentValueForThemeAttribute:@"grid-color"];;
 }
 
 /*!
@@ -1981,7 +1975,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     [newSortDescriptors insertObject:newMainSortDescriptor atIndex:0];
 
     // Update indicator image & highlighted column before
-   	var image = [newMainSortDescriptor ascending] ? [CPTableView _defaultTableHeaderSortImage] : [CPTableView _defaultTableHeaderReverseSortImage];
+   	var image = [newMainSortDescriptor ascending] ? [self _tableHeaderSortImage] : [self _tableHeaderReverseSortImage];
 
     [self setIndicatorImage:nil inTableColumn:_currentHighlightedTableColumn];
 	[self setIndicatorImage:image inTableColumn:tableColumn];
@@ -1996,14 +1990,14 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         [[aTableColumn headerView] _setIndicatorImage:anImage];
 }
 
-+ (CPImage)_defaultTableHeaderSortImage
+- (CPImage)_tableHeaderSortImage
 {
-    return CPAppKitImage("tableview-headerview-ascending.png", CGSizeMake(9.0, 8.0));
+    return [self currentValueForThemeAttribute:"sort-image"];
 }
 
-+ (CPImage)_defaultTableHeaderReverseSortImage
+- (CPImage)_tableHeaderReverseSortImage
 {
-    return CPAppKitImage("tableview-headerview-descending.png", CGSizeMake(9.0, 8.0));
+    return [self currentValueForThemeAttribute:"sort-image-reversed"];
 }
 
 //Highlightable Column Headers
@@ -2689,7 +2683,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     }
 
     CGContextClosePath(context);
-    CGContextSetStrokeColor(context, _gridColor);
+    CGContextSetStrokeColor(context, [self gridColor]);
     CGContextStrokePath(context);
 }
 
@@ -2732,6 +2726,12 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
         deltaHeight = 0.5 * (_gridStyleMask & CPTableViewSolidHorizontalGridLineMask);
 
     CGContextBeginPath(context);
+
+    var gradientCache = [self selectionGradientColors],
+        topLineColor = [gradientCache objectForKey:CPSourceListTopLineColor],
+        bottomLineColor = [gradientCache objectForKey:CPSourceListBottomLineColor],
+        gradientColor = [gradientCache objectForKey:CPSourceListGradient];
+
     while (count--)
     {
         var rowRect = CGRectIntersection(objj_msgSend(self, rectSelector, indexes[count]), aRect);
@@ -2744,21 +2744,21 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
                 maxX = _CGRectGetMaxX(rowRect),
                 maxY = _CGRectGetMaxY(rowRect) - deltaHeight;
 
-            CGContextDrawLinearGradient(context, _sourceListActiveGradient, rowRect.origin, CGPointMake(minX, maxY), 0);
+            CGContextDrawLinearGradient(context, gradientColor, rowRect.origin, CGPointMake(minX, maxY), 0);
             CGContextClosePath(context);
 
             CGContextBeginPath(context);
             CGContextMoveToPoint(context, minX, minY);
             CGContextAddLineToPoint(context, maxX, minY);
             CGContextClosePath(context);
-            CGContextSetStrokeColor(context, _sourceListActiveTopLineColor);
+            CGContextSetStrokeColor(context, topLineColor);
             CGContextStrokePath(context);
 
             CGContextBeginPath(context);
             CGContextMoveToPoint(context, minX, maxY);
             CGContextAddLineToPoint(context, maxX, maxY - 1);
             CGContextClosePath(context);
-            CGContextSetStrokeColor(context, _sourceListActiveBottomLineColor);
+            CGContextSetStrokeColor(context, bottomLineColor);
             CGContextStrokePath(context);
         }
     }
@@ -2767,7 +2767,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
 
     if (!drawGradient)
     {
-        [_selectionHighlightColor setFill];
+        [[self selectionHighlightColor] setFill];
         CGContextFillPath(context);
     }
 
@@ -2810,7 +2810,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     }
 
     CGContextClosePath(context);
-    CGContextSetStrokeColor(context, [CPColor colorWithHexString:@"e5e5e5"]);
+    CGContextSetStrokeColor(context, [self currentValueForThemeAttribute:"highlighted-grid-color"]);
     CGContextStrokePath(context);
 }
 
@@ -3598,12 +3598,11 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
         
         _intercellSpacing = [aCoder decodeSizeForKey:CPTableViewIntercellSpacingKey] || _CGSizeMake(0.0, 0.0);
 
-        _gridColor = [aCoder decodeObjectForKey:CPTableViewGridColorKey] || [CPColor grayColor];
+        [self setGridColor:[aCoder decodeObjectForKey:CPTableViewGridColorKey] || [CPColor grayColor]];
         _gridStyleMask = [aCoder decodeIntForKey:CPTableViewGridStyleMaskKey] || CPTableViewGridNone;
 
         _usesAlternatingRowBackgroundColors = [aCoder decodeObjectForKey:CPTableViewUsesAlternatingBackgroundKey];
-        _alternatingRowBackgroundColors =
-            [[CPColor whiteColor], [CPColor colorWithRed:245.0 / 255.0 green:249.0 / 255.0 blue:252.0 / 255.0 alpha:1.0]];
+        [self setAlternatingRowBackgroundColors:[aCoder decodeObjectForKey:CPTableViewAlternatingRowColorsKey]];
 
         _headerView = [aCoder decodeObjectForKey:CPTableViewHeaderViewKey];
         _cornerView = [aCoder decodeObjectForKey:CPTableViewCornerViewKey];
@@ -3637,11 +3636,11 @@ var CPTableViewDataSourceKey                = @"CPTableViewDataSourceKey",
 
     [aCoder encodeObject:_tableColumns forKey:CPTableViewTableColumnsKey];
 
-    [aCoder encodeObject:_gridColor forKey:CPTableViewGridColorKey];
+    [aCoder encodeObject:[self gridColor] forKey:CPTableViewGridColorKey];
     [aCoder encodeInt:_gridStyleMask forKey:CPTableViewGridStyleMaskKey];
 
     [aCoder encodeBool:_usesAlternatingRowBackgroundColors forKey:CPTableViewUsesAlternatingBackgroundKey];
-    [aCoder encodeObject:_alternatingRowBackgroundColors forKey:CPTableViewAlternatingRowColorsKey]
+    [aCoder encodeObject:[self alternatingRowBackgroundColors] forKey:CPTableViewAlternatingRowColorsKey]
 
     [aCoder encodeObject:_cornerView forKey:CPTableViewCornerViewKey];
     [aCoder encodeObject:_headerView forKey:CPTableViewHeaderViewKey];
